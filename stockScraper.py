@@ -131,7 +131,8 @@ def advancedStats(stockName):
 
 
 #historical prices
-def historicalData(stockName):
+def daily(stockName):
+    #TODO: Optimize to only add new days if data already saved
     try:
         stockName = nameURL(stockName)[0]
         historyURL = nameURL(stockName)[3]
@@ -148,7 +149,7 @@ def historicalData(stockName):
         dataFile = requests.get(downloadData)
         #print(downloadData)
         
-        outFile = open('D:\\Code\\Python\\stock trading\\stockData\\historicalData\\'+ stockName+'History.csv', 'wb')
+        outFile = open('Data/Historical/'+ stockName + '.csv', 'wb')
         outFile.write(dataFile.content)
         
         outFile.close()
@@ -158,7 +159,41 @@ def historicalData(stockName):
         print(traceback.format_exc())
         return False
 
-print(advancedStats('F'))
+def SP500():
+    try:
+        res = requests.get('https://www.slickcharts.com/sp500',
+                          headers = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11',
+       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+       'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.3',
+       'Accept-Encoding': 'none',
+       'Accept-Language': 'en-US,en;q=0.8',
+       'Connection': 'keep-alive'})
+        res.raise_for_status()
+        text = res.text
+        outFile = open('Data/rawHTML/S&P500.txt', 'w')
+        outFile.write(text)
+
+        start = text.index('table table-hover table-borderless table-sm')
+        end = text.index('shadow p-3 mb-5 bg-white rounded', start)
+        table = text[start : end]
+        i = table.index('<a href="/symbol/')
+        l = len('<a href="/symbol/')
+        stockList = []
+        while(i != -1):
+            stockName = table[i + l : table.index('"', i + l)]
+            stockList.append(stockName)
+
+            i = table.find('<a href="/symbol/', table.index('"', i + l))
+            i = table.find('<a href="/symbol/', i + l)
+        return stockList
+    except Exception as e:
+        print('S&P500Fail')
+        print(traceback.format_exc())
+        return(stockList)
+
+#print(daily('F'))
+#print(daily('%5EGSPC'))
+
 
 #ask is buy price and bid is sell price and spread is the difference
 #beta is volatility relative to the market. 1 indicates that the security's price moves with the market.
