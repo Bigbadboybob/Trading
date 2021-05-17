@@ -159,7 +159,7 @@ def daily(stockName):
         print(traceback.format_exc())
         return False
 
-def SP500():
+def SPY():
     try:
         res = requests.get('https://www.slickcharts.com/sp500',
                           headers = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11',
@@ -170,9 +170,10 @@ def SP500():
        'Connection': 'keep-alive'})
         res.raise_for_status()
         text = res.text
-        outFile = open('Data/rawHTML/S&P500.txt', 'w')
+        outFile = open('Data/rawHTML/SPY.txt', 'w')
         outFile.write(text)
 
+        outFile.close()
         start = text.index('table table-hover table-borderless table-sm')
         end = text.index('shadow p-3 mb-5 bg-white rounded', start)
         table = text[start : end]
@@ -187,7 +188,7 @@ def SP500():
             i = table.find('<a href="/symbol/', i + l)
         return stockList
     except Exception as e:
-        print('S&P500Fail')
+        print('SPYFail')
         print(traceback.format_exc())
         return(stockList)
 
