@@ -13,7 +13,7 @@ def daily(stockName):
 def baseInfo(stockName):
     ticker = yf.Ticker(stockName)
     data = ticker.info
-    outfile = open("Data/Info/" + stockName + ".json", 'w')
+    outfile = open("Data/info/" + stockName + ".json", 'w')
     json.dump(data, outfile)
 
 def plot(stockName, key):
@@ -28,4 +28,5 @@ def plot(stockName, key):
 #plot('MSFT', 'Close')
 #plot('GOOG', 'Close')
 baseInfo('MSFT')
+
 

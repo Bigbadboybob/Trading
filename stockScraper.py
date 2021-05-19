@@ -5,6 +5,9 @@ import os
 import time
 import math
 import traceback
+import json
+import pandas as pd
+import numpy as np
 
 #TODO: research APIs and probably debug the indexing of HTML
 #get this working for pandas dataframe structure and plot data
@@ -133,6 +136,18 @@ def advancedStats(stockName):
 #historical prices
 def daily(stockName):
     #TODO: Optimize to only add new days if data already saved
+    pathj = 'Data/calcStats/' + stockName + '.json'
+    path = 'Data/Historical/'+ stockName + '.csv'
+    if (os.path.exists(pathj) and os.path.getsize(pathj)>2):
+        jsonFile = open(pathj, 'r')
+        j = json .load(jsonFile)
+        if (j.get('lastUpdate') == str(np.datetime64('today'))):
+            print('already')
+            return True
+        jsonFile = open(pathj, 'w')
+    else:
+        j = {}
+        jsonFile = open(pathj, 'w')
     try:
         stockName = nameURL(stockName)[0]
         historyURL = nameURL(stockName)[3]
@@ -147,17 +162,32 @@ def daily(stockName):
 
         downloadData = 'https://query1.finance.yahoo.com/v7/finance/download/' + stockName + '?period1=' + firstDate + '&period2=' + lastDate + '&interval=1d&events=history&includeAdjustedClose=true'
         dataFile = requests.get(downloadData)
-        #print(downloadData)
         
-        outFile = open('Data/Historical/'+ stockName + '.csv', 'wb')
+        outFile = open(path, 'wb')
         outFile.write(dataFile.content)
-        
         outFile.close()
+
+        data = pd.read_csv(path, parse_dates=True)
+        today = data.tail(1).iloc[0]
+        j['price'] = today['Close']
+        j['lastUpdate'] = today['Date']
+        print(today)
+        try:
+            json.dump(j, jsonFile)
+            jsonFile.close()
+        except Exception as e:
+            print(traceback.format_exc())
+            jsonFile.close()
+            jsonFile = open(pathj, 'w')
+            json.dump({}, jsonFile)
+            jsonFile.close()
+            return False
         return True
     except Exception as e:
-        print(stockName + 'historicalFail')
         print(traceback.format_exc())
         return False
+
+print(daily('MSFT'))
 
 def SPY():
     try:
