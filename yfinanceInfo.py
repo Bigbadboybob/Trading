@@ -23,10 +23,8 @@ def plot(stockName, key):
     plt.title(stockName)
     plt.show()
 
-#daily('MSFT')
-#daily('GOOG')
-#plot('MSFT', 'Close')
-#plot('GOOG', 'Close')
-baseInfo('MSFT')
 
+
+baseInfo('WTRG')
+daily('WTRG')
 

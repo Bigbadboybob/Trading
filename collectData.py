@@ -124,6 +124,7 @@ def tdSharpe(stock1, stock2, split = 100, days = 252):
             ret, aVol = sharpeRatio(data, fileJson = False)
         retPoints.append(ret)
         aVolPoints.append(aVol)
+
     
     #points = pd.DataFrame(retPoints, aVolPoints, columns = ['ret', aVol])
     #path = 'Data/sample/' + 'tdSharpe.csv'
@@ -234,7 +235,7 @@ def moving(data, days = 90):
     plt.show()
     #TODO: When you learn matplotlib plot these two at the same time
 
-    
+
 
 
 #Plot 2-D Sharpe Ratio
