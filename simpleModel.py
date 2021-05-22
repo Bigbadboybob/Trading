@@ -21,6 +21,7 @@ class simpleMeanReversion(Model):
     def __init__(self, stock, sBalance):
         super().__init__(sBalance)
         self.stock = stock
+        self.name = 'simpleMeanReversion'
 
     def idealPortfolio(self, current = True, date = '2002-08-19'):
         #TODO: decide whether or not to parse dates or use strings
@@ -42,6 +43,11 @@ class simpleMeanReversion(Model):
 
 
     def buySell(self, current = True, date = '2002-08-19'):
+        self.assets = self.cash
+        for s in self.portfolio:
+            p = stockPrice(s, current, date)
+            self.assets += self.portfolio[s]*p
+
         goal = self.idealPortfolio(current = current, date = date)
         buySell = {}
         keysP = self.portfolio.keys()
@@ -55,6 +61,7 @@ class simpleMeanReversion(Model):
             self.portfolio[s] += buySell[s][0]
             self.cash -= buySell[s][0]*buySell[s][1]
 
+        #TODO: Consolidate
         self.assets = self.cash
         for s in self.portfolio:
             p = stockPrice(s, current, date)
@@ -76,6 +83,7 @@ class simpleMomentum(Model):
     def __init__(self, stock, sBalance):
         super().__init__(sBalance)
         self.stock = stock
+        self.name = 'simpleMeanReversion'
 
     def idealPortfolio(self, current = True, date = '2002-08-19'):
         #TODO: decide whether or not to parse dates or use strings
