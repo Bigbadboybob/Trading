@@ -6,6 +6,7 @@ import collectData
 import json
 import math
 import copy
+import datetime as dt
 
 class Model():
 
@@ -21,16 +22,16 @@ class simpleMeanReversion(Model):
     def __init__(self, stock, sBalance):
         super().__init__(sBalance)
         self.stock = stock
-        self.name = 'simpleMeanReversion'
+        self.name = 'simpleMeanReversion' + stock
 
-    def idealPortfolio(self, current = True, date = '2002-08-19'):
+    def idealPortfolio(self, current = True, date = dt.datetime(2002, 8, 19)):
         #TODO: decide whether or not to parse dates or use strings
         if (current):
             price = collectData.price(self.stock)
             avg = collectData.cMovingAvg(self.stock, days = 30)
         else:
             path = 'Data/Historical/' + self.stock + '.csv'
-            data = pd.read_csv(path, index_col = 0, parse_dates = False)
+            data = pd.read_csv(path, index_col = 0, parse_dates = True)
             price = data['Close'][date]
             i = data.index.get_loc(date)
             series = data.iloc[i - 30 : i]['Close']
@@ -42,57 +43,75 @@ class simpleMeanReversion(Model):
             return {self.stock : (vol, price)}
 
 
-    def buySell(self, current = True, date = '2002-08-19'):
-        self.assets = self.cash
-        for s in self.portfolio:
-            p = stockPrice(s, current, date)
-            self.assets += self.portfolio[s]*p
-
-        goal = self.idealPortfolio(current = current, date = date)
-        buySell = {}
-        keysP = self.portfolio.keys()
-        for s in goal:
-            if (s not in keysP):
-                self.portfolio[s] = 0
-            buySell[s] = ((goal[s][0] - self.portfolio[s]), goal[s][1])
-
-        #We assume in the model the buy/sell orders do not fail
-        for s in buySell:
-            self.portfolio[s] += buySell[s][0]
-            self.cash -= buySell[s][0]*buySell[s][1]
-
-        #TODO: Consolidate
-        self.assets = self.cash
-        for s in self.portfolio:
-            p = stockPrice(s, current, date)
-            self.assets += self.portfolio[s]*p
-
-        print('DAY PASSES')
-        print('-----------')
-        print(buySell)
-        print('portfolio')
-        print(self.portfolio)
-        print('cash')
-        print(self.cash)
-        print('assets')
-        print(self.assets)
-        return buySell
-
 class simpleMomentum(Model):
 
     def __init__(self, stock, sBalance):
         super().__init__(sBalance)
         self.stock = stock
-        self.name = 'simpleMeanReversion'
+        self.name = 'simpleMomentum' + stock
 
-    def idealPortfolio(self, current = True, date = '2002-08-19'):
+    def idealPortfolio(self, current = True, date = dt.datetime(2002, 8, 19)):
         #TODO: decide whether or not to parse dates or use strings
         if (current):
             price = collectData.price(self.stock)
             avg = collectData.cMovingAvg(self.stock, days = 30)
         else:
             path = 'Data/Historical/' + self.stock + '.csv'
-            data = pd.read_csv(path, index_col = 0, parse_dates = False)
+            data = pd.read_csv(path, index_col = 0, parse_dates = True)
+            price = data['Close'][date]
+            i = data.index.get_loc(date)
+            series = data.iloc[i - 30 : i]['Close']
+            avg = series.sum()/30
+        if (price < avg):
+            return {self.stock : (0, price)}
+        else:
+            vol = math.floor(self.assets/price)
+            return {self.stock : (vol, price)}
+
+class meanReversion2(Model):
+
+    def __init__(self, stock, sBalance):
+        super().__init__(sBalance)
+        self.stock = stock
+        self.name = 'meanReversion2' + stock
+
+    def idealPortfolio(self, current = True, date = dt.datetime(2002, 8, 19)):
+        if (current):
+            price = collectData.price(self.stock)
+            avg = collectData.cMovingAvg(self.stock, days = 30)
+            sd = collectData.standardDeviation(self.stock, days = 30)
+        else:
+            path = 'Data/Historical/' + self.stock + '.csv'
+            data = pd.read_csv(path, index_col = 0, parse_dates = True)
+            price = data['Close'][date]
+            avg = collectData.cMovingAvg(self.stock, date = date, days = 30)
+            sd = collectData.standardDeviation(self.stock, date = date, days = 30)
+        if (avg - price > sd):
+            return {self.stock : (0, price)}
+        elif (price - avg > sd):
+            vol = math.floor(self.assets/price)
+            return {self.stock : (vol, price)}
+        else:
+            if self.stock in self.portfolio.keys():
+                return {self.stock : (self.portfolio[self.stock], price)}
+            else:
+                return {}
+
+class meanReversionMomentum(Model):
+
+    def __init__(self, stock, sBalance):
+        super().__init__(sBalance)
+        self.stock = stock
+        self.name = 'meanReversionMomentum' + stock
+
+    def idealPortfolio(self, current = True, date = dt.datetime(2002, 8, 19)):
+        #TODO: Implement using 5 day difference
+        if (current):
+            price = collectData.price(self.stock)
+            avg = collectData.cMovingAvg(self.stock, days = 30)
+        else:
+            path = 'Data/Historical/' + self.stock + '.csv'
+            data = pd.read_csv(path, index_col = 0, parse_dates = True)
             price = data['Close'][date]
             i = data.index.get_loc(date)
             series = data.iloc[i - 30 : i]['Close']
@@ -104,44 +123,40 @@ class simpleMomentum(Model):
             return {self.stock : (vol, price)}
 
 
-    def buySell(self, current = True, date = '2002-08-19'):
-        goal = self.idealPortfolio(current = current, date = date)
-        buySell = {}
-        keysP = self.portfolio.keys()
-        for s in goal:
-            if (s not in keysP):
-                self.portfolio[s] = 0
-            buySell[s] = ((goal[s][0] - self.portfolio[s]), goal[s][1])
+def buySell(model, current = True, date = dt.datetime(2002, 8, 19)):
+    model.assets = model.cash
+    for s in model.portfolio:
+        p = stockPrice(s, current, date)
+        model.assets += model.portfolio[s]*p
 
-        #We assume in the model the buy/sell orders do not fail
-        for s in buySell:
-            self.portfolio[s] += buySell[s][0]
-            self.cash -= buySell[s][0]*buySell[s][1]
+    goal = model.idealPortfolio(current = current, date = date)
+    buySell = {}
+    keysP = model.portfolio.keys()
+    for s in goal:
+        if (s not in keysP):
+            model.portfolio[s] = 0
+        buySell[s] = ((goal[s][0] - model.portfolio[s]), goal[s][1])
 
-        self.assets = self.cash
-        for s in self.portfolio:
-            p = stockPrice(s, current, date)
-            self.assets += self.portfolio[s]*p
+    #We assume in the model the buy/sell orders do not fail
+    for s in buySell:
+        model.portfolio[s] += buySell[s][0]
+        model.cash -= buySell[s][0]*buySell[s][1]
 
-        print('DAY PASSES')
-        print('-----------')
-        print(buySell)
-        print('portfolio')
-        print(self.portfolio)
-        print('cash')
-        print(self.cash)
-        print('assets')
-        print(self.assets)
-        return buySell
+    #TODO: Consolidate
+    model.assets = model.cash
+    for s in model.portfolio:
+        p = stockPrice(s, current, date)
+        model.assets += model.portfolio[s]*p
 
-def stockPrice(stock, current = True, date = '2020-05-18'):
+    return buySell
+
+def stockPrice(stock, current = True, date = dt.datetime(2020, 5, 18)):
     if (current):
         price = collectData.price(stock)
-        avg = collectData.cMovingAvg(stock, days = 30)
     else:
         path = 'Data/Historical/' + stock + '.csv'
-        data = pd.read_csv(path, index_col = 0, parse_dates = False)
+        data = pd.read_csv(path, index_col = 0, parse_dates = True)
         price = data['Close'][date]
-        data = pd.read_csv(path, index_col = 0, parse_dates = False)
+        data = pd.read_csv(path, index_col = 0, parse_dates = True)
         price = data['Close'][date]
     return price

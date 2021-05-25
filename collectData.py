@@ -8,6 +8,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import json
+import datetime as dt
 
 def yahooArticle(url):
     #do different things for one url or list of urls
@@ -32,6 +33,14 @@ articles = ['https://finance.yahoo.com/u/yahoo-finance/watchlists/the-autonomous
                  'https://finance.yahoo.com/u/yahoo-finance/watchlists/420_stocks',
                  'https://finance.yahoo.com/u/yahoo-finance/watchlists/electronic-trading-stocks',
                  ]
+
+def daily(stockName):
+    data = yfinanceInfo.daily(stockName)
+    #maybe <= 0?
+    if data.index.size <= 1:
+        data = stockScraper.daily(stockName)
+    return data
+
 
 def price(stockName):
     yfinanceInfo.baseInfo(stockName)        
@@ -74,7 +83,7 @@ def sharpeRatio(data, days = 252, fileJson = True, stockName = ''):
     #TODO: Eventually we wanna use expected return rather than CAGR
     
     data.insert(len(data.columns), 'Return', np.nan)
-    for i in range(1, len(data.index)):
+    for i in range(2, len(data.index)):
         prev = data['Close'][i - 1]
         curr = data['Close'][i]
         data['Return'][i] = (curr/prev) - 1
@@ -196,20 +205,16 @@ def ndSharpeRatio(stocks, datas, split = 10):
     #TODO
     n=1
 
-def cMovingAvg(stock, days = 90):
+def cMovingAvg(stock, date = np.datetime64('today'), days = 90):
     yfinanceInfo.daily(stock)
     path = 'Data/Historical/' + stock + '.csv'
     data = pd.read_csv(path, index_col=0, parse_dates=True)
-    return cMoving(data, days = days)
+    return cMoving(data, date = date, days = days)
     
-def cMoving(data, days = 90):
-    length = len(data.index)
-    if (length < days):
-        print('ERROR: data < moving avg period')
-        return -1
-
-    series = data.iloc[length-days:length]['Close']
-    avg = series.sum()/days
+def cMoving(data, date = np.datetime64('today'), days = 90):
+    i = data.index.get_loc(date)
+    series = data.iloc[i - days:i]['Close']
+    avg = series.sum()/(days)
     return avg
 
 def movingAvg(stock, days = 90):
@@ -235,7 +240,16 @@ def moving(data, days = 90):
     plt.show()
     #TODO: When you learn matplotlib plot these two at the same time
 
+def standardDeviation(stock, date = np.datetime64('today'), days = 90):
+    yfinanceInfo.daily(stock)
+    path = 'Data/Historical/' + stock + '.csv'
+    data = pd.read_csv(path, index_col = 0, parse_dates = True)
+    i = data.index.get_loc(date)
+    series = data.iloc[i - days: i]['Close']
+    return series.std()
 
+
+print(cMovingAvg('NIO'))
 
 
 #Plot 2-D Sharpe Ratio

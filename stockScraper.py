@@ -8,6 +8,7 @@ import traceback
 import json
 import pandas as pd
 import numpy as np
+import datetime as dt
 
 #TODO: research APIs and probably debug the indexing of HTML
 #get this working for pandas dataframe structure and plot data
@@ -142,52 +143,48 @@ def daily(stockName):
         jsonFile = open(pathj, 'r')
         j = json .load(jsonFile)
         if (j.get('lastUpdate') == str(np.datetime64('today'))):
-            print('already')
-            return True
+            data = pd.read_csv(path, parse_dates=True)
+            return data
         jsonFile = open(pathj, 'w')
     else:
         j = {}
         jsonFile = open(pathj, 'w')
+    stockName = nameURL(stockName)[0]
+    historyURL = nameURL(stockName)[3]
+    res = requests.get(historyURL)
+    res.raise_for_status()
+    text = res.text
+
+    dateStart = text.index('\"firstTradeDate\"')
+    firstDate = text[dateStart + 17 : text.index(',', dateStart + 17)]
+
+    lastDate = str(int(math.floor(time.time()) )) 
+
+    downloadData = 'https://query1.finance.yahoo.com/v7/finance/download/' + stockName + '?period1=' + firstDate + '&period2=' + lastDate + '&interval=1d&events=history&includeAdjustedClose=true'
+    dataFile = requests.get(downloadData)
+    
+    outFile = open(path, 'wb')
+    outFile.write(dataFile.content)
+    outFile.close()
+
+    data = pd.read_csv(path, parse_dates=True)
+    today = data.tail(1).iloc[0]
+    j['price'] = today['Close']
+    j['lastUpdate'] = str(dt.date.today())
     try:
-        stockName = nameURL(stockName)[0]
-        historyURL = nameURL(stockName)[3]
-        res = requests.get(historyURL)
-        res.raise_for_status()
-        text = res.text
-
-        dateStart = text.index('\"firstTradeDate\"')
-        firstDate = text[dateStart + 17 : text.index(',', dateStart + 17)]
-
-        lastDate = str(int(math.floor(time.time()) )) 
-
-        downloadData = 'https://query1.finance.yahoo.com/v7/finance/download/' + stockName + '?period1=' + firstDate + '&period2=' + lastDate + '&interval=1d&events=history&includeAdjustedClose=true'
-        dataFile = requests.get(downloadData)
-        
-        outFile = open(path, 'wb')
-        outFile.write(dataFile.content)
-        outFile.close()
-
-        data = pd.read_csv(path, parse_dates=True)
-        today = data.tail(1).iloc[0]
-        j['price'] = today['Close']
-        j['lastUpdate'] = today['Date']
-        print(today)
-        try:
-            json.dump(j, jsonFile)
-            jsonFile.close()
-        except Exception as e:
-            print(traceback.format_exc())
-            jsonFile.close()
-            jsonFile = open(pathj, 'w')
-            json.dump({}, jsonFile)
-            jsonFile.close()
-            return False
-        return True
+        json.dump(j, jsonFile)
+        jsonFile.close()
     except Exception as e:
         print(traceback.format_exc())
-        return False
+        jsonFile.close()
+        jsonFile = open(pathj, 'w')
+        json.dump({}, jsonFile)
+        jsonFile.close()
+        return pd.DataFrame(index = ['Date', 'Open', 'High', 'Low', 'Close',
+                                    'Adj Close', 'Volume'])
+    return data
 
-print(daily('MSFT'))
+
 
 def SPY():
     try:
