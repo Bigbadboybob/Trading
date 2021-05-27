@@ -249,9 +249,6 @@ def standardDeviation(stock, date = np.datetime64('today'), days = 90):
     return series.std()
 
 
-print(cMovingAvg('NIO'))
-
-
 #Plot 2-D Sharpe Ratio
 #points = pd.read_csv('Data/sample/' + 'tdSharpe.csv')
 #print(points)

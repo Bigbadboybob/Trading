@@ -14,8 +14,6 @@ def daily(stockName):
         jsonFile = open(pathj, 'r')
         j = json .load(jsonFile)
         if (j.get('lastUpdate') == str(dt.date.today())):
-            print(j)
-            print('already')
             data = pd.read_csv(path, parse_dates = True)
             return data
         jsonFile = open(pathj, 'w')
@@ -42,7 +40,6 @@ def daily(stockName):
         json.dump({}, jsonFile)
         jsonFile.close()
     return data
-daily('AAPL')
 
 def baseInfo(stockName):
     ticker = yf.Ticker(stockName)

@@ -61,12 +61,11 @@ class SimpleTest():
                 self.cash -= buySell[s][0]*buySell[s][1]
 
                 if generateLogs:
-                    if buySell[s][0] > 0:
+                    if buySell[s][0] > 1:
                         buys[s] = (buySell[s][0], buySell[s][1], c)
                     elif buySell[s][0] < 0:
                         if buySell[s][0] != -buys[s][0]:
                             print('ERROR: Sell differs from buy. Inaccurate logging')
-                            #TODO: Debug single buy
                         row = pd.Series(index = cols)
                         row['Stock'] = s
                         row['Buy Date'] = str(buys[s][2].date())
@@ -78,6 +77,7 @@ class SimpleTest():
                         row['Volume'] = -buySell[s][0]
                         row['Total Return'] = (buySell[s][1] - buys[s][1])/buys[s][1]
                         row['Return per Day'] = row['Total Return']/row['Days']
+                        time.sleep(10)
                         logs.loc[r] = row
                         r += 1
 
@@ -117,12 +117,19 @@ for s in test:
     mean = simpleModel.simpleMeanReversion(s, 5000)
     momentum = simpleModel.simpleMomentum(s, 5000)
     mean2 = simpleModel.meanReversion2(s, 5000)
+    meanMomentum = simpleModel.meanReversionMomentum(s, 5000)
 
     test0 = SimpleTest(5000, {s})
     test0.simpleBacktest(mean)
 
     test1 = SimpleTest(5000, {s})
-    test1.simpleBacktest(mean2)
+    test1.simpleBacktest(momentum)
+
+    test2 = SimpleTest(5000, {s})
+    test2.simpleBacktest(mean2)
+
+    test3 = SimpleTest(5000, {s})
+    test3.simpleBacktest(meanMomentum)
 
     print('DONE')
     print('-----')
@@ -130,8 +137,16 @@ for s in test:
     print('portfolio: ' + str(test0.portfolio))
     print('cash:' + str(test0.cash))
     print('assets:' + str(test0.assets))
-    print('MEAN REVERSION 2')
+    print('MOMENTUM')
     print('portfolio: ' + str(test1.portfolio))
     print('cash:' + str(test1.cash))
     print('assets:' + str(test1.assets))
+    print('MEAN REVERSION 2')
+    print('portfolio: ' + str(test2.portfolio))
+    print('cash:' + str(test2.cash))
+    print('assets:' + str(test2.assets))
+    print('MEAN REVERSION MOMENTUM')
+    print('portfolio: ' + str(test3.portfolio))
+    print('cash:' + str(test3.cash))
+    print('assets:' + str(test3.assets))
     print('PERMABUY = ' + str(permaBuyTest(s, 5000)))
