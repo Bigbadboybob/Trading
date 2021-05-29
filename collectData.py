@@ -117,13 +117,13 @@ def tdSharpe(stock1, stock2, split = 100, days = 252):
     dropped2 = data2.index[0: days2 - days - 1]
     data1 = data1.drop(dropped1)
     data2 = data2.drop(dropped2)
-    print('lets go')
 
     #In order to also get sharpe ratio json for individual stocks
     ret1, aVol1 = sharpeRatio(data1.copy(deep = True), stockName = stock1)
     ret2, aVol2 = sharpeRatio(data2.copy(deep = True), stockName = stock2)
     retPoints = [ret1, ret2]
     aVolPoints = [aVol1, aVol2]
+    ratios = [ret1/aVol1, ret2/aVol2]
 
     for i in range(1, split):
         data = data1*(i/split) + data2*(1-i/split)
@@ -133,19 +133,22 @@ def tdSharpe(stock1, stock2, split = 100, days = 252):
             ret, aVol = sharpeRatio(data, fileJson = False)
         retPoints.append(ret)
         aVolPoints.append(aVol)
+        ratios.append(ret/aVol)
 
-    
-    #points = pd.DataFrame(retPoints, aVolPoints, columns = ['ret', aVol])
-    #path = 'Data/sample/' + 'tdSharpe.csv'
-    #points.to_csv(path)
-    
-    plt.scatter(aVolPoints, retPoints)
+    print(ratios)
+    plt.scatter(aVolPoints, retPoints, c = ratios, cmap = 'summer')
+    cbar = plt.colorbar()
+    cbar.set_label('Sharpe Ratio')
+    plt.xlabel('Volatility')
+    plt.ylabel('Returns')
     plt.show()
     #TODO: Return a list of sharpe frontier points
     #TODO: keep track of actual stock proportions
 
     #~0.115 seconds per year long sharpe calculation
     #2 seconds per dataset dropping data
+
+#tdSharpe('AAPL', 'GOOG')
 
 def ndSharpe(stocks, days = 252):
     #TODO: add split param
@@ -217,13 +220,13 @@ def cMoving(data, date = np.datetime64('today'), days = 90):
     avg = series.sum()/(days)
     return avg
 
-def movingAvg(stock, days = 90):
+def movingAvg(stock, days = 90, plot = False):
     yfinanceInfo.daily(stock)
     path = 'Data/Historical/' + stock + '.csv'
     data = pd.read_csv(path, index_col=0, parse_dates=True)
-    return moving(data, days)
+    return moving(data, days, plot)
     
-def moving(data, days = 90):
+def moving(data, days = 90, plot = False):
     data.insert(len(data.columns), 'Avg', np.nan)
 
     series = data.iloc[0:days]['Close']
@@ -233,12 +236,11 @@ def moving(data, days = 90):
         avg = avg - data['Close'][i-days]/90 + data['Close'][i]/90
         data['Avg'][i] = avg
 
-    plot1 = plt.figure(1)
-    data['Close'].plot()
-    plot2 = plt.figure(2)
-    data.iloc[days - 1:]['Avg'].plot()
-    plt.show()
-    #TODO: When you learn matplotlib plot these two at the same time
+    if plot:
+        plot1 = plt.figure(1)
+        data['Close'].plot()
+        data.iloc[days - 1:]['Avg'].plot()
+        plt.show()
 
 def standardDeviation(stock, date = np.datetime64('today'), days = 90):
     yfinanceInfo.daily(stock)
@@ -247,6 +249,8 @@ def standardDeviation(stock, date = np.datetime64('today'), days = 90):
     i = data.index.get_loc(date)
     series = data.iloc[i - days: i]['Close']
     return series.std()
+
+#movingAvg('MSFT', plot = True)
 
 
 #Plot 2-D Sharpe Ratio
