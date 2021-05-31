@@ -22,11 +22,12 @@ def permaBuyTest(stock, sBalance, startDate = dt.datetime(2020, 5, 18), endDate 
 
 class SimpleTest():
 
-    def __init__(self, sBalance, stocks):
+    def __init__(self, sBalance, stocks, model):
         self.sBalance = sBalance
         self.cash = sBalance
         self.assets = sBalance
         self.stocks = stocks
+        self.model = model
         self.portfolio = {}
         for s in stocks:
             self.portfolio[s] = 0
@@ -37,10 +38,10 @@ class SimpleTest():
     def removeStocks(stocks):
         self.stocks.difference(stocks)
 
-    def simpleBacktest(self, model, startDate =  dt.datetime(2020, 5, 18),
+    def simpleBacktest(self, startDate =  dt.datetime(2020, 5, 18),
                        endDate = dt.datetime(2021, 5, 18), generateLogs = True):
         if generateLogs:
-            lPath = 'Data/simulationLogs/' + model.name + 'BackTest.csv'
+            lPath = 'Data/simulationLogs/' + self.model.name + 'BackTest.csv'
             cols = ['Date', 'Portfolio', 'Assets', 'Stock Assets']
             cols1 = ['Stock', 'Buy Date', 'Sell Date','Days', 'Buy Price',
                     'Sell Price', 'Volume', 'Return','Return per Day'] 
@@ -60,7 +61,7 @@ class SimpleTest():
 
         buys = {}
         for c in series.index:
-            buySell = simpleModel.buySell(model, current = False, date = c)
+            buySell = simpleModel.buySell(self.model, current = False, date = c)
             
             for s in buySell:
                 self.portfolio[s] += buySell[s][0]
@@ -118,22 +119,17 @@ class SimpleTest():
             logs = pd.concat([logs, logs1, logs2], axis = 1)
             logs.to_csv(lPath)
 
-    def plot(self, model):
-        lPath = 'Data/simulationLogs/' + model.name + 'BackTest.csv'
+    def plot(self):
+        lPath = 'Data/simulationLogs/' + self.model.name + 'BackTest.csv'
         if not os.path.exists(lPath):
-            print('ERROR: No logs for ' + model.name)
+            print('ERROR: No logs for ' + self.model.name)
             return False
         data = pd.read_csv(lPath, index_col = 1, parse_dates = True)
         assets = data['Assets']
-        sAssets = data['Stock Assets']
 
-        invested = 1000*sAssets/assets 
-        invested.round()
-        invested = invested.astype(int)
         fig = plt.figure()
-
         plt.plot(assets.index, assets.values)
-        plt.title(model.name)
+        plt.title(self.model.name)
         plt.xlabel('Date')
         plt.ylabel('Assets')
         plt.ylim([self.sBalance*0.8, self.sBalance*2])
@@ -149,50 +145,89 @@ class SimpleTest():
         plt.annotate(text = txt, xy = (data.index[0], self.sBalance*1.8))
         return fig
 
+def categoryComparison():
+    #TODO
+    print('TODO')
+
+#PARAMETER COMPARISON
+def runTest(stocks, m, balance):
+    returns = pd.Series([])
+    hReturns = pd.Series([])
+    for s in stocks:
+        model = m(s, balance)
+        test = SimpleTest(balance, {s}, model)
+        #Comment here to skip test:
+        #test.simpleBacktest()
+
+        print('DONE')
+        print('-----')
+        print(test.model.name.upper())
+        print('portfolio: ' + str(test.portfolio))
+        print('cash:' + str(test.cash))
+        print('assets:' + str(test.assets))
+        print('PERMABUY = ' + str(permaBuyTest(s, balance)))
+
+        f = test.plot()
+        #f.savefig('Data/figures/' + test.model.name + '.png')
+        plt.show()
+
+        lPath = 'Data/simulationLogs/' + model.name + 'BackTest.csv'
+        data = pd.read_csv(lPath, index_col = 1, parse_dates = True)
+        r = data['Total Return'].iloc[0]
+        h = data['Cap Used Return'].iloc[0]
+        returns[returns.size] = r
+        hReturns[hReturns.size] = h
+
+    print(returns)
+    print(hReturns)
+    rAvg = returns.sum()/returns.size
+    rStd = returns.std()
+    hAvg = hReturns.sum()/hReturns.size
+    hStd = hReturns.std()
+    return (rAvg, hAvg, rStd, hStd)
+
+test = ['MSFT', 'GOOG', 'AAPL']
+model = simpleModel.simpleMeanReversion
+balance = 5000
+mLengths = [i for i in range(5, 10)]
+mLengths += [2i for i in range(6, 20)]
+mLengths += [5i for i in range(9, 30)]
+#sLenghts = mLengths
+for i in mLengths:
+    print(runTest(test, model, balance, mLen))
+time.sleep(1000)
+
+def runTests(stocks, models, balance):
+    for s in stocks:
+        tests = []
+        for m in models:
+            t = SimpleTest(balance, {s}, m(s, balance))
+            #Comment here to skip test:
+            t.simpleBacktest()
+            tests.append(t)
+
+        print('DONE')
+        print('-----')
+        for t in tests:
+            print(t.model.name.upper())
+            print('portfolio: ' + str(t.portfolio))
+            print('cash:' + str(t.cash))
+            print('assets:' + str(t.assets))
+        print('PERMABUY = ' + str(permaBuyTest(s, balance)))
+
+        for t in tests:
+            f = t.plot()
+            f.savefig('Data/figures/' + t.model.name + '.png')
+        plt.show()
 
 test = ['MSFT', 'AAPL', 'GOOG', 'NIO', 'ACB', 'CGC', 'WTRG', 'TSLA', 'USDT-USD', 
         'ETH-USD', 'BNB-USD', 'ADA-USD']
+test = ['MSFT']
 balance = 5000
-for s in test:
-    mean = simpleModel.simpleMeanReversion(s, 5000)
-    momentum = simpleModel.simpleMomentum(s, 5000)
-    mean2 = simpleModel.meanReversion2(s, 5000)
-    meanMomentum = simpleModel.meanReversionMomentum(s, 5000)
+mean = simpleModel.simpleMeanReversion
+momentum = simpleModel.simpleMomentum
+mean2 = simpleModel.meanReversion2
+meanMomentum = simpleModel.meanReversionMomentum
+models = [mean, momentum, mean2, meanMomentum]
 
-    test0 = SimpleTest(5000, {s})
-    #test0.simpleBacktest(mean)
-
-    test1 = SimpleTest(5000, {s})
-    #test1.simpleBacktest(momentum)
-
-    test2 = SimpleTest(5000, {s})
-    #test2.simpleBacktest(mean2)
-
-    test3 = SimpleTest(5000, {s})
-    #test3.simpleBacktest(meanMomentum)
-
-    print('DONE')
-    print('-----')
-    print('MEAN REVERSION')
-    print('portfolio: ' + str(test0.portfolio))
-    print('cash:' + str(test0.cash))
-    print('assets:' + str(test0.assets))
-    print('MOMENTUM')
-    print('portfolio: ' + str(test1.portfolio))
-    print('cash:' + str(test1.cash))
-    print('assets:' + str(test1.assets))
-    print('MEAN REVERSION 2')
-    print('portfolio: ' + str(test2.portfolio))
-    print('cash:' + str(test2.cash))
-    print('assets:' + str(test2.assets))
-    print('MEAN REVERSION MOMENTUM')
-    print('portfolio: ' + str(test3.portfolio))
-    print('cash:' + str(test3.cash))
-    print('assets:' + str(test3.assets))
-    print('PERMABUY = ' + str(permaBuyTest(s, 5000)))
-
-    fig0 = test0.plot(mean)
-    fig1 = test1.plot(momentum)
-    fig2 = test2.plot(mean2)
-    fig3 = test3.plot(meanMomentum)
-    plt.show()
+runTests(test, models, balance)
