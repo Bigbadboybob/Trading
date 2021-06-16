@@ -209,6 +209,7 @@ def SPY():
         stockList = []
         while(i != -1):
             stockName = table[i + l : table.index('"', i + l)]
+            stockName = stockName.replace('.', '-')
             stockList.append(stockName)
 
             i = table.find('<a href="/symbol/', table.index('"', i + l))

@@ -9,6 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import json
 import datetime as dt
+import random
 
 def yahooArticle(url):
     #do different things for one url or list of urls
@@ -57,7 +58,7 @@ def sharpe(stockName, days = 252, fileJson = True):
     data = pd.read_csv(path, index_col=0, parse_dates=True)
     return sharpeRatio(data, days, fileJson, stockName)
     
-def sharpeRatio(data, days = 252, fileJson = True, stockName = ''):
+def sharpeRatio(data, days = 252, fileJson = False, stockName = ''):
 
     if (fileJson):
         path1 = 'Data/calcStats/' + stockName + '.json'
@@ -71,11 +72,7 @@ def sharpeRatio(data, days = 252, fileJson = True, stockName = ''):
 
 
     period = len(data.index)
-    if (period > days):
-        startDate = data.index[period - 1 - days]
-    else:
-        startDate = data.index[0]
-        print('start date out of bounds')
+    startDate = data.index[period - 1 - days]
     endDate = data.index[period - 1]
     years = days/252
     CAGR = (data.at[endDate, 'Close']/data.at[startDate, 'Close'])**(1/years) - 1
@@ -83,10 +80,11 @@ def sharpeRatio(data, days = 252, fileJson = True, stockName = ''):
     #TODO: Eventually we wanna use expected return rather than CAGR
     
     data.insert(len(data.columns), 'Return', np.nan)
-    for i in range(2, len(data.index)):
+    for i in range(period - 1 - days, period - 1):
         prev = data['Close'][i - 1]
         curr = data['Close'][i]
         data['Return'][i] = (curr/prev) - 1
+    #print(data['Return'])
     std = data['Return'].std()
     aVol= std*np.sqrt(252)
     ret = (CAGR - riskFree)
@@ -150,56 +148,158 @@ def tdSharpe(stock1, stock2, split = 100, days = 252):
 
 #tdSharpe('AAPL', 'GOOG')
 
-def ndSharpe(stocks, days = 252):
-    #TODO: add split param
+def npSharpeRatio(data, fileJson = False, stockName = ''):
+
+    if (fileJson):
+        path1 = 'Data/calcStats/' + stockName + '.json'
+        if (os.path.exists(path1) and os.path.getsize(path1) > 2):
+            jsonFile = open(path1, 'r')
+            j = json.load(jsonFile)
+            jsonFile = open(path1, 'w')
+        else:
+            j = {}
+            jsonFile = open(path1, 'w')
+
+    #print('NP Data')
+    #print(data)
+    years = data.size/252
+    CAGR = (data[data.size - 1]/data[0])**(1/years) - 1
+    riskFree = 0.0163
+    #TODO: Eventually we wanna use expected return rather than CAGR
+    
+    returns = np.empty(data.size - 1)
+    for i in range(1, data.size):
+        prev = data[i-1]
+        curr = data[i]
+        returns[i - 1] = (curr/prev) - 1
+    #print(returns)
+    std = returns.std()
+    aVol= std*np.sqrt(252)
+    ret = (CAGR - riskFree)
+    sharpe = ret/aVol
+    
+    if (fileJson):
+        j['sharpe'] = sharpe
+        json.dump(j, jsonFile)
+        jsonFile.close()
+
+    return (ret, aVol)
+
+def ndSharpe(stocks, days = 252, res = 100):
     #TODO: keep track of actual stock proportions
-    datas = []
+    datas = np.empty((0, days + 1))
     for s in stocks:
-    #TODO: Account for missing data
         yfinanceInfo.daily(s)
         path = 'Data/Historical/' + s + '.csv'
-        data = pd.read_csv(path1, index_col=0, parse_dates=True)
-        datas.append(data)
-
-    #dropping extra data
-    dayss = []
-    for d in datas:
-        days = len(d.index)
-        dayss.append(days)
-    
-    minD = min(dayss)
-    if (minD < 253):
-        days = days
-
-    for d in datas:
-        dropped = d.index[0: len(d.index) - days - 1]
-        d = d.drop(dropped)
+        data = pd.read_csv(path, index_col=0, parse_dates=True)
+        data = data['Close'].to_numpy()
+        data = data[data.size - days - 1 : data.size]
+        datas = np.vstack((datas, data))
 
     #In order to also get sharpe ratio json for individual stocks
     retPoints = []
     aVolPoints = []
+    maxSharpe = 0
+    points = np.empty((0, len(stocks)))
     for i in range(0, len(stocks)):
-    #TODO: Account for missing data
-        ret, aVol = sharpeRatio(datas[i].copy(deep = True), stockName = stocks[i])
+        point = np.zeros(len(stocks))
+        point[i] = 1
+        points = np.vstack((points, point))
+        ret, aVol = npSharpeRatio(datas[i], fileJson = True, stockName = stocks[i])
         retPoints.append(ret)
         aVolPoints.append(aVol)
+        sharpe = ret/aVol
+        if (sharpe > maxSharpe):
+            maxSharpe = sharpe
+            maxPoint = point
 
-    #TODO: determine which splits of stocks to do
-    for i in range(1, split):
-        data = datas[0]*(i/split) + datas[1]*(1-i/split)
-        if (days < 252):
-            ret, aVol = sharpeRatio(data, days = days, fileJson = False)
-        else:
-            ret, aVol = sharpeRatio(data, fileJson = False)
+    for i in range(0, res):
+        sPoint = np.zeros(len(stocks))
+        #stars and bars to choose point with uniform probability distribution
+        bars = random.sample(range(1, res + len(stocks) - 1), len(stocks) - 1)
+        bars.sort()
+        #for final stock/coord
+        bars.append(res + len(stocks))
+        prev = 0
+        testList = [0 for i in range(0, res + len(stocks))]
+        for i in range(0, len(bars)):
+            testList[bars[i] - 1] = 1
+            sPoint[i] = (bars[i] - prev - 1)/res
+            prev = bars[i]
+        #TODO: check if .copy() needed
+        points = np.vstack((points, sPoint))
+        data = sPoint @ datas
+        ret, aVol = npSharpeRatio(data)
         retPoints.append(ret)
         aVolPoints.append(aVol)
-    
+        if (ret/aVol > maxSharpe):
+            maxSharpe = ret/aVol
+            maxPoint = sPoint
+        mSharpe = ret/aVol
+        mPoint = sPoint
+        print('Starting Point')
+        print(sPoint)
+        if not round(sum(sPoint), 2) == 1.0:
+            print(round(sum(sPoint), 2))
+            raise Exception('ERROR: INVALID POINT')
+
+        #stochastic hillclimbing
+        #count is number of iterations that max has stayed the same
+        count = 0
+        t = 0
+        print(points.shape)
+        point = points.shape[0] - 1
+        print(points[point])
+        while(count < len(stocks)):
+            nPoint = points[point]
+            switch = random.sample(range(0, len(stocks)), 2)
+            while(nPoint[switch[1]] < 1/res):
+                switch = random.sample(range(0, len(stocks)), 2)
+            nPoint = points[point]
+            nPoint[switch[0]] += 1/res
+            nPoint[switch[1]] -= 1/res
+            data = nPoint @ datas
+            ret, aVol = npSharpeRatio(data)
+            retPoints.append(ret)
+            aVolPoints.append(aVol)
+            points = np.vstack((points, nPoint))
+            sharpe = ret/aVol
+
+            count += 1
+            if (sharpe > mSharpe):
+                mSharpe = sharpe
+                mPoint = nPoint
+                count = 0
+
+            #ret
+            p = 1/(1 + np.exp(len(stocks)*(retPoints[point]/aVolPoints[point] - sharpe)/(t+1)))
+            move = np.random.choice([True, False], 1, [p, 1-p])
+            if move:
+                point = t
+            t += 1
+        #max of this iteration
+        print('MAX')
+        print(mSharpe)
+        print(mPoint)
+        time.sleep(1)
+        if (mSharpe > maxSharpe):
+            maxSharpe = mSharpe
+            maxPoint = mPoint
+
+    #final max
+    print('FINAL MAX SHARPE')
+    print(maxSharpe)
+    print(maxPoint)
+
     #points = pd.DataFrame(retPoints, aVolPoints, columns = ['ret', aVol])
     #path = 'Data/sample/' + 'tdSharpe.csv'
     #points.to_csv(path)
     
     plt.scatter(aVolPoints, retPoints)
     plt.show()
+
+#print(sharpe('DE'))
+#ndSharpe(stockScraper.SPY()[:100])
 
 
 def ndSharpeRatio(stocks, datas, split = 10):
@@ -233,7 +333,8 @@ def moving(data, days = 90, plot = False):
     avg = series.sum()/days
     data['Avg'][days] = avg
     for i in range(days + 1, len(data.index)):
-        avg = avg - data['Close'][i-days]/90 + data['Close'][i]/90
+        avg -= data['Close'][i-days]/days
+        avg += data['Close'][i]/days
         data['Avg'][i] = avg
 
     if plot:
@@ -241,6 +342,8 @@ def moving(data, days = 90, plot = False):
         data['Close'].plot()
         data.iloc[days - 1:]['Avg'].plot()
         plt.show()
+
+    return data[days - 1:]['Avg']
 
 def standardDeviation(stock, date = np.datetime64('today'), days = 90):
     yfinanceInfo.daily(stock)
@@ -250,8 +353,7 @@ def standardDeviation(stock, date = np.datetime64('today'), days = 90):
     series = data.iloc[i - days: i]['Close']
     return series.std()
 
-#movingAvg('MSFT', plot = True)
-
+#movingAvg('AMZN', plot = True, days = 16)
 
 #Plot 2-D Sharpe Ratio
 #points = pd.read_csv('Data/sample/' + 'tdSharpe.csv')

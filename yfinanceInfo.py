@@ -41,6 +41,7 @@ def daily(stockName):
         jsonFile.close()
     return data
 
+
 def baseInfo(stockName):
     ticker = yf.Ticker(stockName)
     data = ticker.info
